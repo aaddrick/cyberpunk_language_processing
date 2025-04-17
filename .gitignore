@@ -1,0 +1,9 @@
+*.wem
+*.wav
+*.
+*.csv
+audio*/
+lang*/
+.venv/
+vgmstream-cli
+*.npz
