@@ -2,34 +2,29 @@ import os
 import argparse
 import numpy as np
 import torch
-import librosa # Import librosa
-from nemo.collections.asr.models import EncDecSpeakerLabelModel # Reverted import path as requested
-from sklearn.cluster import MiniBatchKMeans, AgglomerativeClustering # Re-add AgglomerativeClustering for estimation
+import librosa 
+from nemo.collections.asr.models import EncDecSpeakerLabelModel
+from sklearn.cluster import MiniBatchKMeans, AgglomerativeClustering 
 from tqdm import tqdm
 import pandas as pd
 import warnings
 
-# Suppress specific warnings from torchaudio if needed
+
 warnings.filterwarnings("ignore", category=UserWarning, module='torchaudio')
-warnings.filterwarnings("ignore", category=FutureWarning) # Often from libraries like numpy/pandas with new versions
+warnings.filterwarnings("ignore", category=FutureWarning)
 
 def get_embedding(audio_path, embedding_model, target_sr=16000):
     """Loads audio with librosa and extracts speaker embedding using NeMo's infer_segment."""
     try:
-        # Load audio with librosa: ensure mono, target sample rate
         audio, sr = librosa.load(audio_path, sr=target_sr, mono=True)
 
-        # Check if audio is long enough (optional, but good practice)
         min_length = target_sr // 4 # e.g., 0.25 seconds
         if len(audio) < min_length:
              print(f"Warning: Skipping short audio file {os.path.basename(audio_path)} ({len(audio)/target_sr:.2f}s)")
              return None
 
-        # Use infer_segment which expects a numpy array (segment)
-        # It returns embedding and logits
         emb_tensor, _ = embedding_model.infer_segment(audio)
 
-        # Convert the resulting tensor embedding to numpy array on CPU
         embedding = emb_tensor.squeeze().cpu().numpy()
 
         return embedding
@@ -45,7 +40,7 @@ def main(input_dir, output_file, num_clusters=None, save_embeddings_path=None, l
         if not load_embeddings_path:
             print("Error: --load_embeddings is required when using --estimate_k.")
             return
-        if estimate_threshold is None: # Check if threshold was actually provided
+        if estimate_threshold is None:
              print("Error: --estimate_threshold is required when using --estimate_k.")
              return
         print(f"--- Running in Estimation Mode ---")
@@ -53,14 +48,13 @@ def main(input_dir, output_file, num_clusters=None, save_embeddings_path=None, l
         print(f"Using sample size: {estimate_sample_size}")
         print(f"Using distance threshold: {estimate_threshold}")
     elif num_clusters is None:
-         # If not estimating, num_clusters is required for MiniBatchKMeans
          print("Error: -k/--num_clusters is required unless --estimate_k is used.")
          return
 
 
     embeddings_array = None
     filenames = None
-    extracted_this_run = False # Flag to track if we extracted or loaded
+    extracted_this_run = False 
 
     # --- Load Embeddings if requested ---
     if load_embeddings_path:
@@ -92,9 +86,8 @@ def main(input_dir, output_file, num_clusters=None, save_embeddings_path=None, l
         # --- Load Model ---
         print("Loading NeMo speaker embedding model (titanet-large)...")
         try:
-            # Ensure model is placed on the correct device
             embedding_model = EncDecSpeakerLabelModel.from_pretrained(model_name="titanet_large").to(device) # Changed to underscore
-            embedding_model.eval() # Set model to evaluation mode
+            embedding_model.eval() 
             print("Model loaded successfully.")
         except Exception as e:
             print(f"Error loading NeMo model: {e}")
@@ -108,8 +101,7 @@ def main(input_dir, output_file, num_clusters=None, save_embeddings_path=None, l
             return
         print(f"Found {len(wav_files)} WAV files.")
 
-        # Limit to the first 100 files for testing (adjust as needed)
-        limit = 100000 # Set back to a high limit or remove if desired for full runs
+        limit = 100000 
         if len(wav_files) > limit:
             print(f"Limiting processing to the first {limit} files found.")
             wav_files = wav_files[:limit]
@@ -122,7 +114,6 @@ def main(input_dir, output_file, num_clusters=None, save_embeddings_path=None, l
         embeddings = []
         filenames = []
         for wav_path in tqdm(wav_files, desc="Processing files"):
-            # Pass only path and model (model is already on device)
             emb = get_embedding(wav_path, embedding_model)
             if emb is not None:
                 embeddings.append(emb)
@@ -133,7 +124,7 @@ def main(input_dir, output_file, num_clusters=None, save_embeddings_path=None, l
             return
 
         embeddings_array = np.array(embeddings)
-        filenames = np.array(filenames) # Store filenames as numpy array too
+        filenames = np.array(filenames) 
         print(f"Successfully extracted {len(embeddings)} embeddings.")
         print(f"Embedding shape: {embeddings_array.shape}")
 
@@ -160,16 +151,14 @@ def main(input_dir, output_file, num_clusters=None, save_embeddings_path=None, l
             sample_indices = np.arange(sample_size)
         else:
             sample_size = estimate_sample_size
-            # Ensure reproducibility of the sample
             rng = np.random.default_rng(seed=42)
             sample_indices = rng.choice(len(embeddings_array), size=sample_size, replace=False)
 
         embeddings_sample = embeddings_array[sample_indices]
 
         try:
-            # Use Agglomerative Clustering just for estimation
             agg_clustering = AgglomerativeClustering(
-                n_clusters=None, # Determine based on threshold
+                n_clusters=None, 
                 metric='cosine',
                 linkage='average',
                 distance_threshold=estimate_threshold
@@ -180,7 +169,7 @@ def main(input_dir, output_file, num_clusters=None, save_embeddings_path=None, l
             print(f"Agglomerative clustering on {sample_size} samples with threshold {estimate_threshold} found {estimated_k} clusters.")
             print(f"You can use '-k {estimated_k}' (or a similar value) for MiniBatchKMeans on the full dataset.")
             print(f"--- Exiting Estimation Mode ---")
-            return # Exit after estimation
+            return 
 
         except MemoryError:
              print(f"\nError: Still ran out of memory trying to estimate k with Agglomerative Clustering on {sample_size} samples.")
@@ -195,7 +184,7 @@ def main(input_dir, output_file, num_clusters=None, save_embeddings_path=None, l
         if embeddings_array is None or filenames is None:
              print("Error: Embeddings not loaded or extracted. Cannot cluster.")
              return
-        if num_clusters is None: # Should be caught by arg parsing, but double-check
+        if num_clusters is None: 
              print("Error: Number of clusters (-k) not specified for MiniBatchKMeans.")
              return
 
@@ -206,16 +195,15 @@ def main(input_dir, output_file, num_clusters=None, save_embeddings_path=None, l
         # compute_labels=True is needed to get the labels directly after fitting
         mbk = MiniBatchKMeans(
             n_clusters=num_clusters,
-            random_state=0, # for reproducibility
-            batch_size=1024, # Adjust if needed, default might be okay
+            random_state=0, 
+            batch_size=1024,
             n_init='auto',
             compute_labels=True,
-            verbose=1 # Show progress
+            verbose=1
         ).fit(embeddings_array)
 
         labels = mbk.labels_
-        # Note: MiniBatchKMeans doesn't report the *found* number of clusters like Agglomerative did,
-        # because we specified it via n_clusters.
+
         print(f"Clustering complete. Assigned files to {num_clusters} clusters.")
 
         # --- Save Results ---
@@ -224,7 +212,6 @@ def main(input_dir, output_file, num_clusters=None, save_embeddings_path=None, l
             'filename': filenames,
             'cluster_id': labels
         })
-        # Sort by cluster ID then filename for easier viewing
         results_df.sort_values(by=['cluster_id', 'filename'], inplace=True)
 
         try:
@@ -236,10 +223,8 @@ def main(input_dir, output_file, num_clusters=None, save_embeddings_path=None, l
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Cluster WAV files by speaker using embeddings, or estimate k.")
-    # Change input_dir and output_file to named optional arguments
     parser.add_argument("--input_dir", default=None, help="Directory containing WAV files (required for extraction).")
     parser.add_argument("--output_file", default=None, help="Path to save the CSV clustering results (required unless estimating k).")
-    # Make num_clusters optional if estimating k
     parser.add_argument("-k", "--num_clusters", type=int, default=None, help="Target number of speaker clusters (required unless estimating k).")
     parser.add_argument("--save_embeddings", default=None, help="Path to save extracted embeddings (e.g., embeddings.npz).")
     parser.add_argument("--load_embeddings", default=None, help="Path to load pre-extracted embeddings (e.g., embeddings.npz).")
@@ -256,13 +241,10 @@ if __name__ == "__main__":
             parser.error("--load_embeddings is required when using --estimate_k.")
         if args.estimate_threshold is None:
              parser.error("--estimate_threshold is required when using --estimate_k.")
-        # output_file and num_clusters are not used in estimation mode
-        # Set them explicitly to None to avoid potential issues later
         args.output_file = None
         args.num_clusters = None
-        args.input_dir = None # Input dir also not needed for estimation
+        args.input_dir = None 
     else:
-        # Normal clustering mode validation
         if args.num_clusters is None:
              parser.error("-k/--num_clusters is required unless using --estimate_k.")
         if args.output_file is None:
@@ -271,13 +253,12 @@ if __name__ == "__main__":
             parser.error("Either --load_embeddings or --input_dir must be specified when not estimating k.")
         if args.load_embeddings and args.input_dir:
             print("Warning: --load_embeddings provided, --input_dir will be ignored for extraction.")
-            args.input_dir = None # Ignore input_dir if loading embeddings
-        # estimate_threshold is not used in normal mode
-        args.estimate_threshold = None # Ensure it's None if not estimating
+            args.input_dir = None 
+        args.estimate_threshold = None 
 
 
     main(
-        input_dir=args.input_dir, # Use the potentially modified args.input_dir
+        input_dir=args.input_dir, 
         output_file=args.output_file,
         num_clusters=args.num_clusters,
         save_embeddings_path=args.save_embeddings,
