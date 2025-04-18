@@ -2,6 +2,7 @@
 *.wav
 *.
 *.csv
+*.log
 audio*/
 lang*/
 .venv/
