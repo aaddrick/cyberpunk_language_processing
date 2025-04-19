@@ -8,7 +8,25 @@ class FlowSettings(BaseSettings):
     transcribe: bool = True
 
 class ExtractionSettings(BaseSettings):
-    auth_key: str = 'xxx' 
+    archive_path: str = '/home/aaddrick/Games/Heroic/Cyberpunk 2077/archive/pc/content/'
+    archive_name: str = 'audio_1_general'
+    output_path: str = 'cyberpunk2077-language-processing/data/extracts'
+    signatures: dict[str, tuple[bytes, str]] = {
+        'audio_1_general': (b'\x52\x49\x46\x46', '.wem'),
+        'audio_2_soundbanks': (b'\x52\x49\x46\x46', '.wem'),
+        'basegame_5_video': (b'\x4b\x42\x32\x6a', '.bk2'),
+        'lang_de_voice': (b'\x52\x49\x46\x46', '.wem'),
+        'lang_en_voice': (b'\x52\x49\x46\x46', '.wem'),
+        'lang_es-es_voice': (b'\x52\x49\x46\x46', '.wem'),
+        'lang_fr_voice': (b'\x52\x49\x46\x46', '.wem'),
+        'lang_it_voice': (b'\x52\x49\x46\x46', '.wem'),
+        'lang_ja_voice': (b'\x52\x49\x46\x46', '.wem'),
+        'lang_ko_voice': (b'\x52\x49\x46\x46', '.wem'),
+        'lang_pl_voice': (b'\x52\x49\x46\x46', '.wem'),
+        'lang_pt_voice': (b'\x52\x49\x46\x46', '.wem'),
+        'lang_ru_voice': (b'\x52\x49\x46\x46', '.wem'),
+        'lang_zh-cn_voice': (b'\x52\x49\x46\x46', '.wem')
+    }
 
 class EmbeddingSettings(BaseSettings):
     '''

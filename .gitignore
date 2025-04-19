@@ -7,3 +7,4 @@ data/
 .venv/
 vgmstream-cli
 *.npz
+__pycache__/
